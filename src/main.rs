@@ -1,10 +1,13 @@
-use axum::{middleware, routing::get, Router};
-use rate_limiter::rate_limiter;
-use redis_connection::RedisConnection;
 use std::net::SocketAddr;
 
-mod rate_limiter;
+use axum::{middleware, routing::get, Router};
+use fixed_window::rate_limiter_redis_fixed_window;
+use redis_connection::RedisConnection;
+use token_bucket::{rate_limiter_token_bucket, TokenBucket};
+
+mod fixed_window;
 mod redis_connection;
+mod token_bucket;
 
 #[tokio::main]
 async fn main() {
@@ -12,14 +15,20 @@ async fn main() {
         Ok(c) => c,
         Err(e) => panic!("{e}"),
     };
+    let token_bucket = TokenBucket::new();
 
     let app = Router::new()
         .route("/", get(root))
         .route_layer(middleware::from_fn_with_state(
             connection_pool.clone(),
-            rate_limiter,
+            rate_limiter_redis_fixed_window,
         ))
-        .with_state(connection_pool);
+        .route_layer(middleware::from_fn_with_state(
+            token_bucket.clone(),
+            rate_limiter_token_bucket,
+        ))
+        .with_state(connection_pool)
+        .with_state(token_bucket);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
 

@@ -8,7 +8,7 @@ use chrono::{Datelike, Timelike, Utc};
 
 use crate::redis_connection::RedisConnection;
 
-pub async fn rate_limiter<B>(
+pub async fn rate_limiter_redis_fixed_window<B>(
     State(pool_connection): State<RedisConnection>,
     request: Request<B>,
     next: Next<B>,
@@ -20,12 +20,12 @@ pub async fn rate_limiter<B>(
     let hour = now.hour();
     let minute = now.minute();
 
-    let date_string = format!("{year}-{month}-{day}-{hour}-{minute}");
+    let rate_limit_key = format!("{year}-{month}-{day}-{hour}-{minute}");
 
     let mut conn = pool_connection.get().await.unwrap();
 
     let result: i32 = redis::cmd("INCR")
-        .arg(date_string)
+        .arg(rate_limit_key)
         .query_async(&mut conn)
         .await
         .unwrap();
@@ -37,3 +37,4 @@ pub async fn rate_limiter<B>(
         Ok(response)
     }
 }
+

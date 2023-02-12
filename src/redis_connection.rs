@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use deadpool_redis::{Pool, Config, Runtime};
+use deadpool_redis::{Config, Pool, Runtime};
 
 #[derive(Clone)]
 pub struct RedisConnection {
